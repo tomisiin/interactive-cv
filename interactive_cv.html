@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive CV | Olorunmaiye Tomisin</title>
+    <!-- Chosen Palette: Warm Neutral & Professional Blue -->
+    <!-- Application Structure Plan: A tabbed single-page application. Tabs: Overview, Career Timeline & Impact, Core Capabilities, and Education & Certs. This structure moves beyond a linear CV, allowing non-linear exploration. A hiring manager can jump directly to "Core Capabilities" to see technical proof (charts) or "Career Timeline" to see specific job achievements. This dashboard-like approach better reflects an analyst's data-driven nature and makes the content more engaging and digestible. Navigation is JS-driven, showing/hiding content sections based on user selection. -->
+    <!-- Visualization & Content Choices:
+        1. Overview - Key KPIs: Info(Quantified achievements like +24%) -> Goal(Inform/Hook) -> Viz(Styled Stat Cards) -> Interaction(Hover) -> Justification(Instant commercial impact) -> Method(HTML/Tailwind).
+        2. Overview - Skills List: Info(Top skills) -> Goal(Inform) -> Viz(Styled "Pills"/Badges) -> Interaction(None) -> Justification(Visually scannable tech stack) -> Method(HTML/Tailwind).
+        3. Career Timeline: Info(Job roles/bullets) -> Goal(Organize/Inform) -> Viz(Vertical interactive timeline) -> Interaction(Click to expand/collapse job details) -> Justification(Less overwhelming than text wall, interactive) -> Method(HTML/Tailwind + JS).
+        4. Capabilities - Skills Radar: Info(Skill categories) -> Goal(Compare) -> Viz(Radar Chart) -> Interaction(Hover tooltips) -> Justification(Classic analyst visual for multi-dimensional skill) -> Method(Chart.js/Canvas).
+        5. Capabilities - Impact Bar Chart: Info(A/B test uplifts) -> Goal(Inform/Compare) -> Viz(Horizontal Bar Chart) -> Interaction(Hover tooltips) -> Justification(Visually isolates key experiment results) -> Method(Chart.js/Canvas).
+        6. Capabilities - Tool Matrix: Info(Full tool list) -> Goal(Organize) -> Viz(HTML/Tailwind Grid by category) -> Interaction(None) -> Justification(Structured and scannable) -> Method(HTML/Tailwind).
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <style>
+        :root {
+            --bg-main: #f9fafb;
+            --bg-card: #ffffff;
+            --text-primary: #1f2937;
+            --text-secondary: #4b5563;
+            --border-color: #e5e7eb;
+            --primary-accent: #2563eb;
+            --primary-accent-light: #dbeafe;
+            --primary-accent-text: #eff6ff;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+        .tab-btn {
+            padding: 0.75rem 1.25rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            color: var(--text-secondary);
+        }
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+        .tab-btn.active {
+            color: var(--primary-accent);
+            border-bottom-color: var(--primary-accent);
+        }
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .content-section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        .chart-container-bar {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .stat-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .skill-pill {
+            background-color: var(--primary-accent-light);
+            color: var(--primary-accent);
+            font-weight: 500;
+        }
+        .timeline-item {
+            border-left: 3px solid var(--border-color);
+            padding-left: 1.5rem;
+            position: relative;
+        }
+        .timeline-item:before {
+            content: '';
+            display: block;
+            position: absolute;
+            left: -9px;
+            top: 4px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: var(--border-color);
+            transition: all 0.3s ease;
+        }
+        .timeline-item .job-header.active:before {
+             background-color: var(--primary-accent);
+             transform: scale(1.1);
+        }
+        .job-header {
+            cursor: pointer;
+        }
+        .job-header.active h3 {
+            color: var(--primary-accent);
+        }
+        .job-details {
+            transition: all 0.3s ease-in-out;
+            overflow: hidden;
+            max-height: 500px;
+        }
+        .job-details.hidden {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            padding-bottom: 0;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-6xl">
+
+        <!-- Header -->
+        <header class="text-center md:text-left mb-8 md:flex md:items-center md:justify-between">
+            <div>
+                <h1 class="text-4xl font-bold text-gray-900">OLORUNMAIYE OLUWATOMISIN</h1>
+                <p class="text-2xl font-medium text-gray-700">Senior Digital Analyst</p>
+            </div>
+            <div class="mt-4 md:mt-0 text-sm text-gray-600 space-y-1 md:text-right">
+                <p>+447760860804</p>
+                <p>Reading, United Kingdom</p>
+                <p>tomimaiye@gmail.com</p>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="flex flex-wrap justify-center md:justify-start border-b border-gray-200 mb-8">
+            <button class="tab-btn active" data-tab="overview">Overview</button>
+            <button class="tab-btn" data-tab="timeline">Career Timeline & Impact</button>
+            <button class="tab-btn" data-tab="capabilities">Core Capabilities</button>
+            <button class="tab-btn" data-tab="education">Education & Certs</button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main>
+
+            <!-- Section 1: Overview (Default) -->
+            <section id="overview" class="content-section active">
+                <div class="space-y-8">
+                    
+                    <!-- Professional Profile -->
+                    <div>
+                        <h2 class="text-2xl font-semibold mb-3">Professional Profile</h2>
+                        <p class="text-lg text-gray-700 leading-relaxed">
+                            Senior Digital Analyst with 5+ years of driving commercial impact through expert GA4 implementation, GTM governance, and advanced SQL analysis. Proven history of <strong>leading web and product analytics projects</strong>, encompassing user journey analysis, A/B testing, and usability testing. Expert in translating complex data insights into clear, strategic recommendations for cross-functional teams, including product managers, developers, and designers. Confident in <strong>owning the full web analytics lifecycle</strong>, from tracking framework design (GA4, Mixpanel, BigQuery) to dashboard creation, ensuring data quality and maximizing conversion and commercial outcomes.
+                        </p>
+                    </div>
+
+                    <!-- Key Career Impacts (KPIs) -->
+                    <div>
+                        <h2 class="text-2xl font-semibold mb-4">Key Career Impacts</h2>
+                        <p class="text-md text-gray-600 mb-4">A high-level look at the quantified results I have driven in my roles. These metrics represent my focus on turning data into actionable commercial success.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="stat-card">
+                                <span class="text-4xl font-bold text-green-600">+42%</span>
+                                <p class="text-lg font-medium mt-2">New Product Sales</p>
+                                <p class="text-sm text-gray-600">From a single A/B test on user registration</p>
+                            </div>
+                            <div class="stat-card">
+                                <span class="text-4xl font-bold text-green-600">+24%</span>
+                                <p class="text-lg font-medium mt-2">Attributed Donations</p>
+                                <p class="text-sm text-gray-600">Via end-to-end GTM conversion tracking</p>
+                            </div>
+                            <div class="stat-card">
+                                <span class="text-4xl font-bold text-green-600">-60%</span>
+                                <p class="text-lg font-medium mt-2">Reporting Time</p>
+                                <p class="text-sm text-gray-600">By building automated performance dashboards</p>
+                            </div>
+                            <div class="stat-card">
+                                <span class="text-4xl font-bold text-green-600">-17%</span>
+                                <p class="text-lg font-medium mt-2">Funnel Exit Rate</p>
+                                <p class="text-sm text-gray-600">After Mixpanel analysis and content restructure</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Core Toolkit -->
+                    <div>
+                        <h2 class="text-2xl font-semibold mb-4">Core Toolkit</h2>
+                        <p class="text-md text-gray-600 mb-4">These are the primary tools and technologies I use to drive analysis and optimization.</p>
+                        <div class="flex flex-wrap gap-3">
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">GA4</span>
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">Google Tag Manager (GTM)</span>
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">Expert SQL</span>
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">BigQuery</span>
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">A/B Testing</span>
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">MixPanel</span>
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">Looker Studio</span>
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">Tableau</span>
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">Python</span>
+                            <span class="skill-pill px-4 py-2 rounded-full text-sm">Power B.I</span>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Section 2: Career Timeline & Impact -->
+            <section id="timeline" class="content-section">
+                <h2 class="text-3xl font-bold mb-3">Career Timeline & Impact</h2>
+                <p class="text-lg text-gray-600 mb-8">Explore my professional history in an interactive format. Click any job title to expand and see the key responsibilities and quantified achievements for that role.</p>
+
+                <div class="space-y-8">
+                    
+                    <!-- GOSH -->
+                    <div class="timeline-item">
+                        <div class="job-header active" data-job="gosh">
+                            <h3 class="text-2xl font-semibold transition-colors">Senior Digital Analyst</h3>
+                            <p class="text-lg font-medium text-gray-800">Great Ormond Street Hospital Charity</p>
+                            <p class="text-md text-gray-500">March 2024 - Present</p>
+                        </div>
+                        <div id="gosh-details" class="job-details mt-4 pl-4 border-l-2 border-blue-200">
+                            <ul class="list-disc list-outside space-y-2 text-gray-700">
+                                <li><strong>Owned and maintained</strong> the end-to-end web analytics setup, implementing end-to-end conversion tracking via GTM, which resulted in a <strong>24% increase in attributed online donations</strong>.</li>
+                                <li><strong>Led a comprehensive GA4/GTM governance audit</strong> that resolved critical attribution issues, removed over 17 redundant tags, and ensured <strong>GDPR compliance</strong> across all digital assets.</li>
+                                <li><strong>Designed and built a scalable experimentation framework</strong> for monitoring A/B test performance in real-time, leveraging GA4 and Looker Studio dashboards.</li>
+                                <li><strong>Leveraged advanced SQL and BigQuery</strong> to analyze user behavior across donation funnels, joining web data to identify high drop-offs and bottlenecks that subsequently drove a full redesign of key conversion journeys.</li>
+                                <li><strong>Reduced reporting turnaround time by over 60%</strong> by building and maintaining end-to-end product performance dashboards in Looker Studio and Power BI.</li>
+                                <li><strong>Acted as an internal subject matter expert</strong>, facilitating training sessions on A/B testing, defining KPIs, and data visualization for teams across the organization.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Playhouse Sr -->
+                    <div class="timeline-item">
+                        <div class="job-header" data-job="playhouse-sr">
+                            <h3 class="text-2xl font-semibold transition-colors">Senior Product Analyst</h3>
+                            <p class="text-lg font-medium text-gray-800">Playhouse Communication Ltd.</p>
+                            <p class="text-md text-gray-500">December 2020 - December 2023</p>
+                        </div>
+                        <div id="playhouse-sr-details" class="job-details hidden mt-4 pl-4 border-l-2 border-blue-200">
+                            <ul class="list-disc list-outside space-y-2 text-gray-700">
+                                <li><strong>Led the successful migration</strong> of the client's digital analytics from GA3 to <strong>GA4</strong> and designed executive dashboards for cross-functional stakeholders.</li>
+                                <li><strong>Designed and evaluated website experiments</strong> on user registration options (Google Optimize), which improved digital asset performance and directly contributed to a <strong>42% uplift in new product sales</strong>.</li>
+                                <li><strong>Drove optimization of the MyMTN App</strong> by running an A/B experiment on a purchase journey change, which delivered a <strong>12% uplift</strong> for the variant.</li>
+                                <li><strong>Translated complex Mixpanel analysis</strong> on the MTN website to identify high exit rates on key data bundle pages, guiding content restructuring that <strong>reduced exits by 17%</strong>.</li>
+                                <li><strong>Structured and continuously optimized</strong> automated reports for generating and sharing strategic performance insights with C-Level executives.</li>
+                                <li>Conducted usability testing that led to a redesign of the MyMTN App in Nigeria.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Playhouse Jr -->
+                    <div class="timeline-item">
+                        <div class="job-header" data-job="playhouse-jr">
+                            <h3 class="text-2xl font-semibold transition-colors">Digital Data Analyst</h3>
+                            <p class="text-lg font-medium text-gray-800">Playhouse Communication Ltd.</p>
+                            <p class="text-md text-gray-500">March 2018 - November 2020</p>
+                        </div>
+                        <div id="playhouse-jr-details" class="job-details hidden mt-4 pl-4 border-l-2 border-blue-200">
+                            <ul class="list-disc list-outside space-y-2 text-gray-700">
+                                <li><strong>Proactively applied analytics</strong> by performing Sentiment analysis using Python to gauge consumer affinity for brands, leading to a reduction in average negative sentiment from 36% to 17% over a 3-month period.</li>
+                                <li>Implemented event tracking on key conversion events on multiple client websites.</li>
+                                <li>Collaborated with internal teams to feed presentations with relevant data, <strong>reducing reporting time by over 50%</strong>.</li>
+                                <li>Conducted market research on competitors and industry benchmarks.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Volunteer -->
+                    <div class="timeline-item">
+                        <div class="job-header" data-job="volunteer">
+                            <h3 class="text-2xl font-semibold transition-colors">Volunteer</h3>
+                            <p class="text-lg font-medium text-gray-800">Essentials Consulting Ltd</p>
+                            <p class="text-md text-gray-500">Nov 2016 - Jun 2017</p>
+                        </div>
+                        <div id="volunteer-details" class="job-details hidden mt-4 pl-4 border-l-2 border-blue-200">
+                            <ul class="list-disc list-outside space-y-2 text-gray-700">
+                                <li>Used MS Excel to create an updated pay scale for a client, employing formulas to suggest streamlined increases across the board.</li>
+                                <li>Used Excel to automate tasks that <strong>reduced turnaround time by over 40%</strong>.</li>
+                                <li>Assisted training facilitators to create PowerPoint slides.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Section 3: Core Capabilities -->
+            <section id="capabilities" class="content-section">
+                <h2 class="text-3xl font-bold mb-3">Core Capabilities Dashboard</h2>
+                <p class="text-lg text-gray-600 mb-8">This dashboard provides a visual breakdown of my technical and strategic skills. Here you can see my areas of expertise and the tools I command.</p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                    <!-- Left Column: Radar Chart & Tool Matrix -->
+                    <div class="space-y-8">
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-4 text-center">Analyst Skill Profile</h3>
+                            <p class="text-center text-gray-600 mb-4">This chart visualizes my proficiency across the key domains of a senior analyst. It shows a balanced, T-shaped profile with deep expertise in analytics and data, complemented by strong experimentation and data science skills.</p>
+                            <div class="chart-container">
+                                <canvas id="skillsRadarChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-4">Comprehensive Tool Matrix</h3>
+                             <p class="text-gray-600 mb-4">A complete breakdown of the tools I use, organized by analytical function.</p>
+                            <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-blue-700 mb-2">Core Web Analytics</h4>
+                                        <ul class="list-disc list-inside text-gray-700">
+                                            <li>Google Analytics 4 (GA4)</li>
+                                            <li>Google Tag Manager (GTM)</li>
+                                            <li>MixPanel</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-blue-700 mb-2">Data & SQL</h4>
+                                        <ul class="list-disc list-inside text-gray-700">
+                                            <li>Expert SQL</li>
+                                            <li>BigQuery</li>
+                                            <li>Dbt</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-blue-700 mb-2">Experimentation</h4>
+                                        <ul class="list-disc list-inside text-gray-700">
+                                            <li>A/B & MVT</li>
+                                            <li>Optimizely</li>
+                                            <li>AB Tasty</li>
+                                            <li>Google Optimize</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-blue-700 mb-2">Data Science & BI</h4>
+                                        <ul class="list-disc list-inside text-gray-700">
+                                            <li>Python (Data Manipulation)</li>
+                                            <li>R</li>
+                                            <li>Looker Studio</li>
+                                            <li>Tableau</li>
+                                            <li>Power B.I & Power Apps</li>
+                                            <li>Excel</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Bar Chart -->
+                    <div class="space-y-8">
+                        <div>
+                            <h3 class="text-2xl font-semibold mb-4 text-center">Quantified Experimentation & Efficiency Impact</h3>
+                            <p class="text-center text-gray-600 mb-4">This chart highlights the direct impact of my analytical work, focusing on positive uplifts from A/B tests and significant efficiency gains from process optimization.</p>
+                            <div class="chart-container-bar">
+                                <canvas id="impactBarChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 4: Education & Certifications -->
+            <section id="education" class="content-section">
+                <h2 class="text-3xl font-bold mb-3">Education & Certifications</h2>
+                <p class="text-lg text-gray-600 mb-8">My formal education and professional certifications provide the foundational knowledge for my analytical career.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Education -->
+                    <div class="space-y-6">
+                        <h3 class="text-2xl font-semibold text-gray-800">Education</h3>
+                        <div class="stat-card">
+                            <h4 class="text-xl font-semibold text-blue-700">Masters in Business Analytics and Big Data</h4>
+                            <p class="text-md text-gray-600">University of Dundee, 2023</p>
+                        </div>
+                        <div class="stat-card">
+                            <h4 class="text-xl font-semibold text-blue-700">Bachelor of Science in Computer Science</h4>
+                            <p class="text-md text-gray-600">Bowen University, 2015</p>
+                        </div>
+                    </div>
+
+                    <!-- Certifications -->
+                    <div class="space-y-6">
+                        <h3 class="text-2xl font-semibold text-gray-800">Certifications</h3>
+                        <div class="stat-card">
+                            <p class="text-lg font-medium text-gray-800">Google Data Analyst Certificate</p>
+                        </div>
+                        <div class="stat-card">
+                            <p class="text-lg font-medium text-gray-800">Google Analytics Certification (GA4)</p>
+                        </div>
+                        <div class="stat-card">
+                            <p class="text-lg font-medium text-gray-800">Oracle Cloud Infrastructure AI Foundations Associate</p>
+                        </div>
+                        <div class="stat-card">
+                            <p class="text-lg font-medium text-gray-800">Advanced Diploma in Software Engineering (APTECH)</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tabs = document.querySelectorAll('.tab-btn');
+            const contents = document.querySelectorAll('.content-section');
+            const jobHeaders = document.querySelectorAll('.job-header');
+            
+            let chartsInitialized = false;
+
+            // Tab Navigation
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    const target = tab.dataset.tab;
+                    contents.forEach(c => {
+                        c.classList.remove('active');
+                        if (c.id === target) {
+                            c.classList.add('active');
+                        }
+                    });
+
+                    // Initialize charts only when 'Capabilities' tab is clicked for the first time
+                    if (target === 'capabilities' && !chartsInitialized) {
+                        initCharts();
+                        chartsInitialized = true;
+                    }
+                });
+            });
+
+            // Timeline Interaction
+            jobHeaders.forEach(header => {
+                header.addEventListener('click', () => {
+                    const isActive = header.classList.contains('active');
+
+                    // Close all other headers
+                    jobHeaders.forEach(h => {
+                        h.classList.remove('active');
+                        h.nextElementSibling.classList.add('hidden');
+                    });
+
+                    // Toggle the clicked header
+                    if (!isActive) {
+                        header.classList.add('active');
+                        header.nextElementSibling.classList.remove('hidden');
+                    }
+                });
+            });
+
+            // Set default active job
+            const defaultJob = document.querySelector('.job-header[data-job="gosh"]');
+            if(defaultJob) {
+                defaultJob.classList.add('active');
+                defaultJob.nextElementSibling.classList.remove('hidden');
+            }
+            
+            // Helper function to wrap labels
+            function formatLabel(str, maxwidth) {
+                const sections = [];
+                let words = str.split(" ");
+                let temp = "";
+                words.forEach((item, index) => {
+                    if (temp.length > 0) {
+                        let concat = temp + ' ' + item;
+                        if (concat.length > maxwidth) {
+                            sections.push(temp);
+                            temp = "";
+                        } else {
+                            temp = concat;
+                            return;
+                        }
+                    }
+                    if (item.length > maxwidth) {
+                        sections.push(item);
+                    } else {
+                        temp = item;
+                    }
+                    if (index === words.length - 1) {
+                        sections.push(temp);
+                    }
+                });
+                return sections;
+            }
+
+            // Chart Initialization
+            function initCharts() {
+                const skillsData = {
+                    labels: formatLabel('Web Analytics (GA4/GTM)', 15).concat(
+                            formatLabel('SQL & Data (BigQuery)', 15),
+                            formatLabel('Experimentation (A/B)', 15),
+                            formatLabel('Data Science (Python)', 15),
+                            formatLabel('BI & Reporting (Looker)', 15)
+                    ),
+                    datasets: [{
+                        label: 'Skill Level',
+                        data: [9, 9, 8, 7, 8],
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        borderColor: 'rgba(37, 99, 235, 0.8)',
+                        pointBackgroundColor: 'rgba(37, 99, 235, 0.8)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(37, 99, 235, 1)'
+                    }]
+                };
+
+                const impactData = {
+                    labels: ['New Product Sales Uplift (42%)', 'Attributed Donations Uplift (24%)', 'MyMTN App Uplift (12%)', 'Funnel Exit Rate Reduction (17%)', 'Reporting Time Reduction (60%)'],
+                    datasets: [{
+                        label: 'Impact (%)',
+                        data: [42, 24, 12, 17, 60],
+                        backgroundColor: [
+                            'rgba(22, 163, 74, 0.7)',
+                            'rgba(22, 163, 74, 0.7)',
+                            'rgba(22, 163, 74, 0.7)',
+                            'rgba(22, 163, 74, 0.7)',
+                            'rgba(37, 99, 235, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(22, 163, 74, 1)',
+                            'rgba(22, 163, 74, 1)',
+                            'rgba(22, 163, 74, 1)',
+                            'rgba(22, 163, 74, 1)',
+                            'rgba(37, 99, 235, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                };
+
+                const ctxRadar = document.getElementById('skillsRadarChart').getContext('2d');
+                new Chart(ctxRadar, {
+                    type: 'radar',
+                    data: skillsData,
+                    options: {
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        label += context.parsed.r;
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 10,
+                                ticks: {
+                                    stepSize: 2,
+                                    backdropColor: 'transparent'
+                                },
+                                pointLabels: {
+                                    font: {
+                                        size: 13,
+                                        weight: 500
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            }
+                        }
+                    }
+                });
+
+                const ctxBar = document.getElementById('impactBarChart').getContext('2d');
+                new Chart(ctxBar, {
+                    type: 'bar',
+                    data: impactData,
+                    options: {
+                        indexAxis: 'y',
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Quantified Impact (Uplifts in Green, Efficiency in Blue)',
+                                font: {
+                                    size: 14,
+                                    weight: 500
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Percentage (%)'
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    font: {
+                                        size: 13
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
